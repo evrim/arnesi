@@ -106,7 +106,16 @@
      for var-spec in (sb-c::lexenv-vars environment)
      when (and (atom (cdr var-spec))
                (not (and (typep (cdr var-spec) 'sb-c::lambda-var)
-			 (sb-c::lambda-var-ignorep (cdr var-spec)))))
+			 (sb-c::lambda-var-ignorep (cdr var-spec))))
+	       (not (typep (cdr var-spec) 'sb-c::global-var)))
+     collect (car var-spec)))
+
+#+sbcl
+(defmethod special-variables ((environment sb-kernel:lexenv))
+  (loop
+     for var-spec in (sb-c::lexenv-vars environment)
+     when (and (atom (cdr var-spec))               
+	       (typep (cdr var-spec) 'sb-c::global-var))
      collect (car var-spec)))
 
 #+sbcl

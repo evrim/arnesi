@@ -7,20 +7,19 @@
 ;;;; Variable References
 
 (defmethod evaluate/cc ((var local-variable-reference) lex-env dyn-env k)
-  (declare (ignore dyn-env))
   (kontinue k (lookup lex-env :let (name var) :error-p t)))
 
 (defmethod evaluate/cc ((var local-lexical-variable-reference) lex-env dyn-env k)
-  (declare (ignore dyn-env))
-  (kontinue k (funcall (first (lookup lex-env :lexical-let (name var) :error-p t)))))
+  (kontinue k (lookup lex-env :let (name var) :error-p t)))
 
 (defmethod evaluate/cc ((var free-variable-reference) lex-env dyn-env k)
-  (declare (ignore lex-env))
-  (multiple-value-bind (value foundp)
-      (lookup dyn-env :let (name var))
+;;  (declare (ignore lex-env))  
+  (multiple-value-bind (value foundp) (lookup dyn-env :let (name var))
     (if foundp
-        (kontinue k value)
-        (kontinue k (symbol-value (name var))))))
+	(kontinue k value)
+	(if (boundp (name var))
+	    (kontinue k (symbol-value (name var)))
+	    (kontinue k (lookup lex-env :let (name var)))))))
 
 ;;;; Constants
 
@@ -95,7 +94,7 @@
           (setf dyn-env (register dyn-env :let name (symbol-value name))))))
   dyn-env)
 
-(defmethod evaluate/cc ((let let-form) lex-env dyn-env k)
+(defmethod evaluate/cc ((let let-form) lex-env dyn-env k)  
   (evaluate-let/cc (binds let) nil (body let) lex-env (import-specials let dyn-env) k))
 
 (defk k-for-evaluate-let/cc (var remaining-bindings evaluated-bindings body lex-env dyn-env k)
@@ -119,25 +118,30 @@
            ,lex-env ,dyn-env ,k)))
       (dolist* ((var . value) evaluated-bindings
                 (evaluate-progn/cc body lex-env dyn-env k))
-        (if (special-var-p var (parent (first body)))
-            (setf dyn-env (register dyn-env :let var value))
-            (setf lex-env (register lex-env :let var value))))))
+	(setf lex-env (register lex-env :let var value))
+	(if (special-var-p var (parent (first body)))
+	    (setf dyn-env (register dyn-env :let var value)))
+;;   	(if (special-var-p var (parent (first body)))
+;;     	    (setf dyn-env (register dyn-env :let var value))
+;;     	    (setf lex-env (register lex-env :let var value)))
+	)))
 
 (defun special-var-p (var declares-mixin)
   (or (find-if (lambda (declaration)
-                 (and (typep declaration 'special-declaration-form)
-                      (eq (name declaration) var)))
-               (declares declares-mixin))
-      (boundp var)
-      ;; This is the only portable way to check if a symbol is
-      ;; declared special, without being boundp, i.e. (defvar 'foo).
-      ;; Maybe we should make it optional with a compile-time flag?
-      #+nil(eval `((lambda ()
-                (flet ((func ()
-                         (symbol-value ',var)))
-                  (let ((,var t))
-                    (declare (ignorable ,var))
-                    (ignore-errors (func)))))))))
+		 (and (typep declaration 'special-declaration-form)
+		      (eq (name declaration) var)))
+	       (declares declares-mixin))      
+      (boundp var))
+;; This is the only portable way to check if a symbol is
+;; declared special, without being boundp, i.e. (defvar 'foo).
+;; Maybe we should make it optional with a compile-time flag?
+;;    (eval `((lambda ()
+;;  		(flet ((func ()
+;;  			 (symbol-value ',var)))
+;;  		  (let ((,var t))
+;;  		    (declare (ignorable ,var))
+;;  		    (ignore-errors (func)))))))
+      )
 
 (defmethod evaluate/cc ((let* let*-form) lex-env dyn-env k)
   (evaluate-let*/cc (binds let*) (body let*) lex-env (import-specials let* dyn-env) k))
@@ -177,7 +181,7 @@
 ;;;; LOCALLY
 
 (defmethod evaluate/cc ((locally locally-form) lex-env dyn-env k)
-  (evaluate-progn/cc (body locally) lex-env dyn-env k))
+  (evaluate-progn/cc (body locally) lex-env (import-specials locally dyn-env) k))
 
 ;;;; MACROLET
 

@@ -125,7 +125,7 @@
   ((body :accessor body :initarg :body)))
 
 (defclass implicit-progn-with-declare-mixin (implicit-progn-mixin)
-  ((declares :accessor declares :initarg :declares)))
+  ((declares :accessor declares :initarg :declares :initform nil)))
 
 (defclass binding-form-mixin ()
   ((binds :accessor binds :initarg :binds)))
@@ -725,10 +725,11 @@
       (declare (ignore b e d))
       (dolist* ((var . value) (binds let))
         (declare (ignore value))
-        (if (not (find-if (lambda (declaration)
-                            (and (typep declaration 'special-declaration-form)
-                                 (eq var (name declaration)))) declarations))
-            (extend-walk-env env :let var :dummy)))
+	(if (find-if (lambda (declaration)
+		       (and (typep declaration 'special-declaration-form)
+			    (eql var (name declaration))))
+		     declarations)
+	    (extend-walk-env env :let var :dummy)))
       (multiple-value-setf ((body let) nil (declares let))
                            (walk-implict-progn let (cddr form) env :declare t)))))
 

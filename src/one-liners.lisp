@@ -104,16 +104,28 @@ are discarded \(that is, the body is an implicit PROGN)."
 (defmacro extend (environment type name datum &rest other-datum)
   `(setf ,environment (register ,environment ,type ,name ,datum ,@other-datum)))
 
+(defun any (lambda list)
+  "i wonder why missing."
+  (reduce #'(lambda (acc atom)
+	      (aif (funcall lambda atom)
+		   (return-from any it)
+		   acc))
+	  list :initial-value nil))
+
 (defun lookup (environment type name &key (error-p nil) (default-value nil))
-  (loop
-     for (.type .name . data) in environment
-     when (and (eql .type type) (eql .name name))
-       return (values data t)
-     finally
-       (if error-p
-           (error "Sorry, No value for ~S of type ~S in environment ~S found."
-                  name type environment)
-           (values default-value nil))))
+  ;; (loop
+  ;;      for (.type .name . data) in environment
+  ;;      when (and (eql .type type) (eql .name name))
+  ;;      do (return-from lookup (values data t)))
+  (mapc #'(lambda (atom)
+	    (if (and (eql (car atom) type)
+		     (eql (cadr atom) name))
+		(return-from lookup (values (cddr atom) t))))
+	environment)  
+  (if error-p
+      (error "Sorry, No value for ~S of type ~S in environment ~S found."
+	     name type environment)
+      (values default-value nil)))
 
 (defun (setf lookup) (value environment type name &key (error-p nil))
   (loop

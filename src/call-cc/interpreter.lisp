@@ -18,6 +18,19 @@
 
 (defvar *call/cc-returns* nil)
 
+(defun make-cc-walk-env (&optional lexical-env)
+  (let ((walk-env '()))
+    (when lexical-env
+      (dolist (var (lexical-variables lexical-env))
+        (extend walk-env :let var t))
+      (dolist (fun (lexical-functions lexical-env))
+	(extend walk-env :flet fun t))
+      (dolist (mac (lexical-macros lexical-env))
+	(extend walk-env :macrolet (car mac) (cdr mac)))
+      (dolist (symmac (lexical-symbol-macros lexical-env))
+	(extend walk-env :symbol-macrolet (car symmac) (cdr symmac))))
+    walk-env))
+
 (defmacro with-call/cc (&environment e &body body)
   "Execute BODY with delimited partial continuations.
 
@@ -29,30 +42,21 @@
   passed a continuation. This object may then be passed to the
   function KALL which will cause execution to resume around the
   call/cc form. "
-  (let ((walk-env (make-walk-env e))
-        (evaluate-env nil))
-    (dolist* ((type name &rest data) (car walk-env))
-      (declare (ignore data))
-      (when (eql :lexical-let type)
-        (push (list 'list
-                    :lexical-let
-                    `(quote ,name)
-                    ;; NB: this makes the environment, and therefore
-                    ;; continuations, unserializable. we would need to
-                    ;; change this to a regular :let and not allow the
-                    ;; setting of lexical variables.
-                    `(lambda () ,name)
-                    (with-unique-names (v)
-                      `(lambda (,v) (setf ,name ,v))))
-              evaluate-env)))
-    (setf evaluate-env `(list ,@(nreverse evaluate-env)))
-    `(drive-interpreter/cc
-      (evaluate/cc ,(walk-form (if (rest body)
-                                   `(progn ,@body)
-                                   (first body))
-                               nil walk-env)
-                   ,evaluate-env nil
-                   *toplevel-k*))))
+  (flet ((env-vars (list)
+	   (reduce #'(lambda (acc atom)
+				  (if (eq :let (car atom))
+				      (cons (list 'list* :let `(quote ,(cadr atom)) (cadr atom)) acc)
+				      (cons atom acc)))
+		   list :initial-value nil)))
+    (let ((lex-env `(list ,@(env-vars (make-cc-walk-env e))))
+	  (dyn-env `(list ,@(env-vars (mapcar #'(lambda (var) `(:let ,var t))
+					      (special-variables e))))))
+      (with-unique-names (lex dyn)
+	`(let ((,lex ,lex-env) (,dyn ,dyn-env))
+	   (drive-interpreter/cc
+	    (evaluate/cc ,(walk-form `(progn ,@(ensure-list body)) nil (make-walk-env e))
+			 ,lex ,dyn
+			 *toplevel-k*)))))))
 
 (defun kall (k &optional (primary-value nil primary-value-p)
                &rest other-values)
