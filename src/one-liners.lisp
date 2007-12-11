@@ -107,9 +107,10 @@ are discarded \(that is, the body is an implicit PROGN)."
 (defun any (lambda list)
   "i wonder why missing."
   (reduce #'(lambda (acc atom)
-	      (aif (funcall lambda atom)
-		   (return-from any it)
-		   acc))
+	      (let ((i (funcall lambda atom)))
+		(if i
+		    (return-from any i)
+		    acc)))
 	  list :initial-value nil))
 
 (defun lookup (environment type name &key (error-p nil) (default-value nil))
