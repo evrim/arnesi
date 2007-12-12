@@ -6,8 +6,7 @@
 
 (defmethod evaluate/cc ((func free-function-object-form) lex-env dyn-env k)
   (declare (ignore lex-env dyn-env))
-  (multiple-value-bind (definition cc-boundp)
-      (fdefinition/cc (name func))
+  (multiple-value-bind (definition cc-boundp) (fdefinition/cc (name func))
     (if cc-boundp
         (kontinue k definition)
         (if (fboundp (name func))

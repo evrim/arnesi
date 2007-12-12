@@ -41,21 +41,25 @@
     (let ((arguments (car args))
 	  (body (cdr args)))
       `(progn
-	 (unless (eq 'defmethod/cc (second (multiple-value-list (fdefinition/cc ',name))))
-           (setf (fdefinition/cc ',name 'defmethod/cc) t)
-           (defgeneric/cc ,name ,(if arguments 
-                                     (convert-to-generic-lambda-list arguments)
-                                     '())))
-	 (defmethod ,name ,@qlist ,arguments
-           ,(when arguments 
-	     `(declare (ignorable ,@(extract-argument-names arguments :allow-specializers t))))
-	   ,@(when (stringp (first body))
-              (list (pop body)))
-	   (make-instance 'closure/cc
+	 (let ((closure (make-instance 'closure/cc
 			  :code (walk-form '(lambda ,(clean-argument-list arguments)
 					     (block ,name ,@body))
 					   nil nil)
-			  :env nil))))))
+			  :env nil)))
+	   (defgeneric/cc ,name ,(if arguments 
+				     (convert-to-generic-lambda-list arguments)
+				     '()))
+	   (setf (fdefinition/cc ',name 'defmethod/cc) closure)
+	   (defmethod ,name ,@qlist ,arguments
+		      ,(when arguments 
+			     `(declare (ignorable ,@(extract-argument-names arguments :allow-specializers t))))
+		      ,@(when (stringp (first body))
+			      (list (pop body)))
+	       (make-instance 'closure/cc
+			      :code (walk-form '(lambda ,(clean-argument-list arguments)
+						 (block ,name ,@body))
+					       nil nil)
+			      :env nil)))))))
 
 ;;;; CC-STANDARD (standard-combination for cc methods)
 
