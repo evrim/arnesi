@@ -296,14 +296,26 @@
                            dyn-env
                            k))
 
+(defmacro special-environment (dyn-env &body body)
+  `(let (,@(reduce #'(lambda (acc atom)
+		       (if (eq :let (car atom))
+			   (cons `(,(cadr  atom) ,(cddr atom)) acc)
+			   acc))
+		   dyn-env :initial-value nil))
+     ,@body))
+
 (defmethod apply-lambda/cc ((operator function) effective-arguments dyn-env k)
   "Method used when we're applying a regular, non cc, function object."
   (trace-statement "Applying function ~S to ~S" operator effective-arguments)
-  
-  (if (and (typep operator 'generic-function)
+  (cond
+    ((and (typep operator 'generic-function)
 	   (eql 'defmethod/cc (nth-value 1 (fdefinition/cc (mopp:generic-function-name operator)))))
-      (apply-lambda/cc (apply operator effective-arguments) effective-arguments dyn-env k)      
-      (apply #'kontinue k (multiple-value-list (apply operator effective-arguments)))))
+     (apply-lambda/cc (apply operator effective-arguments) effective-arguments dyn-env k))
+    ((null dyn-env)
+     (apply #'kontinue k (multiple-value-list (apply operator effective-arguments))))
+    (t
+     (apply #'kontinue k (eval `(special-environment ,dyn-env
+				  (multiple-value-list (apply ',operator ',effective-arguments))))))))
 
 (defmethod apply-lambda/cc ((operator symbol) effective-arguments dyn-env k)
   "Method used when we're applying a regular, non cc, function object."
