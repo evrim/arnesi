@@ -92,29 +92,29 @@
           (funcall setter (eval (let ((*package* #.(find-package :arnesi)))
                                   (read-from-string value-string)))))))))
 
-(defmethod swank:inspect-for-emacs ((category log-category))
-  (let ((class (class-of category)))
-    (values "A log-category."
-            `("Class: " (:value ,class) (:newline)
-              "Runtime level: " (:value ,(log.level category)
-                                 ,(string (log-level-name-of (log.level category))))
-              " "
-              (:action "[set level]" ,(log-level-setter-inspector-action-for
-                                       "Set runtime log level to (evaluated): "
-                                       (log.level category)
-                                       (lambda (value)
-                                         (setf (log.level category) value))))
-              (:newline)
-              "Compile-time level: " (:value ,(log.compile-time-level category)
-                                      ,(string (log-level-name-of (log.compile-time-level category))))
-               " "
-              (:action "[set level]" ,(log-level-setter-inspector-action-for
-                                       "Set compile-time log level to (evaluated): "
-                                       (log.compile-time-level category)
-                                       (lambda (value)
-                                         (setf (log.compile-time-level category) value))))
-              (:newline)
-              ,@(swank::all-slots-for-inspector category)))))
+;; (defmethod swank:inspect-for-emacs ((category log-category))
+;;   (let ((class (class-of category)))
+;;     (values "A log-category."
+;;             `("Class: " (:value ,class) (:newline)
+;;               "Runtime level: " (:value ,(log.level category)
+;;                                  ,(string (log-level-name-of (log.level category))))
+;;               " "
+;;               (:action "[set level]" ,(log-level-setter-inspector-action-for
+;;                                        "Set runtime log level to (evaluated): "
+;;                                        (log.level category)
+;;                                        (lambda (value)
+;;                                          (setf (log.level category) value))))
+;;               (:newline)
+;;               "Compile-time level: " (:value ,(log.compile-time-level category)
+;;                                       ,(string (log-level-name-of (log.compile-time-level category))))
+;;                " "
+;;               (:action "[set level]" ,(log-level-setter-inspector-action-for
+;;                                        "Set compile-time log level to (evaluated): "
+;;                                        (log.compile-time-level category)
+;;                                        (lambda (value)
+;;                                          (setf (log.compile-time-level category) value))))
+;;               (:newline)
+;;               ,@(swank::all-slots-for-inspector category)))))
 
 ;;; Runtime levels
 (defmethod enabled-p ((cat log-category) level)
