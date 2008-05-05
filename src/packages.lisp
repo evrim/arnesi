@@ -27,6 +27,7 @@
 
    #:form
    #:walk-form
+   #:walk-form-no-expand
    #:make-walk-env
    #:*walk-handlers*
    #:*warn-undefined*

@@ -14,6 +14,11 @@
   "Walk FORM and return a FORM object."
   (funcall (find-walker-handler form) form parent env))
 
+(defvar *walker-expand-macros-p* t)
+(defun walk-form-no-expand (form &optional (parent nil) (env (make-walk-env)))
+  (let ((*walker-expand-macros-p* nil))
+    (funcall (find-walker-handler form) form parent env)))
+
 (defun make-walk-env (&optional lexical-env)
   (let ((walk-env '()))
     (when lexical-env
@@ -93,8 +98,8 @@
   `(progn
      (setf (gethash ',name *walker-handlers*)
            (lambda (,form ,parent ,lexical-env)
-             (declare (ignorable ,parent ,lexical-env))
-             ,@body))
+             (declare (ignorable ,parent ,lexical-env))              
+	     ,@body))
      ',name))
 
 (defclass form ()
@@ -334,8 +339,7 @@
                     :parent parent :source form))
     ((lookup-walk-env env :symbol-macrolet form)
      (walk-form (lookup-walk-env env :symbol-macrolet form) parent env))
-    ((nth-value 1 (macroexpand-1 form))
-     ;; a globaly defined symbol-macro
+    ((nth-value 1 (macroexpand-1 form))     
      (walk-form (macroexpand-1 form) parent env))
     (t
      (when (and *warn-undefined*
@@ -364,10 +368,8 @@
 
 (defwalker-handler application (form parent env)
   (block nil
-    (destructuring-bind (op &rest args)
-        form
-      (when (and (consp op)
-                 (eq 'cl:lambda (car op)))
+    (destructuring-bind (op &rest args) form
+      (when (and (consp op) (eq 'cl:lambda (car op)))
         (return
           (with-form-object (application lambda-application-form :parent parent :source form)
             (setf (operator application) (walk-form op application env)
@@ -376,11 +378,14 @@
                                                   args)))))
       (when (lookup-walk-env env :macrolet op)
         (return (walk-form (funcall (lookup-walk-env env :macrolet op) form (cdr env)) parent env)))
-      (when (and (symbolp op) (macro-function op))
-	(multiple-value-bind (expansion expanded)
-	    (macroexpand-1 form (cdr env))
+      (when (and (symbolp op) *walker-expand-macros-p* (macro-function op))
+	(multiple-value-bind (expansion expanded) (macroexpand-1 form (cdr env))
 	  (when expanded
-	    (return (walk-form expansion parent env)))))
+	    (return (walk-form expansion parent env))
+;;; 	    (if *walker-expand-macros-p*
+;;; 		(return (walk-form expansion parent env))
+;;; 		(return (walk-form form parent env)))
+	    )))
       (let ((app (if (lookup-walk-env env :flet op)
                      (make-instance 'local-application-form :code (lookup-walk-env env :flet op))
                      (if (lookup-walk-env env :lexical-flet op)
@@ -419,19 +424,22 @@
 (defclass lexical-function-object-form (function-object-form)
   ())
 
-(defwalker-handler function (form parent env)
+(defwalker-handler lambda (form parent env)
+  (walk-lambda form parent env))
+
+(defwalker-handler function (form parent env)  
   (if (and (listp (second form))
-           (eql 'cl:lambda (first (second form))))
-      ;; (function (lambda ...))
+	   (eql 'cl:lambda (first (second form))))
+      ;; (function (lambda ...))	
       (walk-lambda (second form) parent env)
       ;; (function foo)
       (make-instance (if (lookup-walk-env env :flet (second form))
-                         'local-function-object-form
-                         (if (lookup-walk-env env :lexical-flet (second form))
+			 'local-function-object-form
+			 (if (lookup-walk-env env :lexical-flet (second form))
 			     'lexical-function-object-form
 			     'free-function-object-form))
-                     :name (second form)
-                     :parent parent :source form)))
+		     :name (second form)
+		     :parent parent :source form)))
 
 (defun walk-lambda (form parent env)
   (with-form-object (func lambda-function-form
@@ -643,7 +651,8 @@
   (with-form-object (if if-form :parent parent :source form)
     (setf (consequent if) (walk-form (second form) if env)
           (then if) (walk-form (third form) if env)
-          (else if) (walk-form (fourth form) if env))))
+          (else if) (if (fourth form)
+			(walk-form (fourth form) if env)))))
 
 ;;;; FLET/LABELS
 
@@ -860,7 +869,7 @@
             (setf (walk-form (first effective-code) parent env))))
         ;; multiple forms
         (with-form-object (progn progn-form :parent parent :source form)
-          (setf (body progn) (walk-implict-progn progn effective-code env))))))
+          (setf (body progn) (reverse (walk-implict-progn progn effective-code env)))))))
 
 ;;;; SYMBOL-MACROLET
 
