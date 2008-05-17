@@ -10,11 +10,15 @@
   "When non-NIL any references to undefined functions or
   variables will signal a warning.")
 
+(defvar *walker-expand-macros-p* t "Expand macros during walk")
+
 (defun walk-form (form &optional (parent nil) (env (make-walk-env)))
   "Walk FORM and return a FORM object."
-  (funcall (find-walker-handler form) form parent env))
+  (let ((form (if *walker-expand-macros-p*
+		  (macroexpand-1 form (cdr env))
+		  form)))
+    (funcall (find-walker-handler form) form parent env)))
 
-(defvar *walker-expand-macros-p* t)
 (defun walk-form-no-expand (form &optional (parent nil) (env (make-walk-env)))
   (let ((*walker-expand-macros-p* nil))
     (funcall (find-walker-handler form) form parent env)))
@@ -381,11 +385,7 @@
       (when (and (symbolp op) *walker-expand-macros-p* (macro-function op))
 	(multiple-value-bind (expansion expanded) (macroexpand-1 form (cdr env))
 	  (when expanded
-	    (return (walk-form expansion parent env))
-;;; 	    (if *walker-expand-macros-p*
-;;; 		(return (walk-form expansion parent env))
-;;; 		(return (walk-form form parent env)))
-	    )))
+	    (return (walk-form expansion parent env)))))
       (let ((app (if (lookup-walk-env env :flet op)
                      (make-instance 'local-application-form :code (lookup-walk-env env :flet op))
                      (if (lookup-walk-env env :lexical-flet op)
@@ -666,8 +666,7 @@
   ())
 
 (defwalker-handler flet (form parent env)
-  (destructuring-bind (binds &body body)
-      (cdr form)
+  (destructuring-bind (binds &body body) (cdr form)
     (with-form-object (flet flet-form :parent parent :source form)
       ;;;; build up the objects for the bindings in the original env
       (loop
@@ -772,7 +771,8 @@
 
 (defwalker-handler locally (form parent env)
   (with-form-object (locally locally-form :parent parent :source form)
-    (multiple-value-setf ((body locally) nil (declares locally)) (walk-implict-progn locally (cdr form) env :declare t))))
+    (multiple-value-setf ((body locally) nil (declares locally))
+      (walk-implict-progn locally (cdr form) env :declare t))))
 
 ;;;; MACROLET
 
@@ -971,6 +971,52 @@
                                      :body form
                                      :read-only (third form))
     (setf (body load-time-value) (second form))))
+
+
+;; EXTENSIONS -evrim
+;; Used by core-server js+
+;; -------------------------
+;; TODO: implement declares -evrim.
+(defclass dotimes-form (form implicit-progn-with-declare-mixin)
+  ((var :accessor var :initarg :var)
+   (how-many :accessor how-many :initarg :how-many)))
+
+(defwalker-handler dotimes (form parent env)
+  (assert (>= (length form) 3))
+  (describe (cddr form))
+  (with-form-object (dt dotimes-form :parent parent :source form)
+    (setf (var dt) (caadr form)
+	  (how-many dt) (walk-form (cadadr form) dt env))
+    (multiple-value-bind (body doc declares) (walk-implict-progn
+					      dt (cddr form)
+					      (extend-walk-env env :let (var dt) :dummy))
+      (declare (ignore doc))
+      (setf (body dt) body
+	    (declares dt) declares))))
+
+(defclass dolist-form (form implicit-progn-mixin)
+  ((var :accessor var :initarg :var)
+   (lst :accessor lst :initarg :lst)))
+
+(defwalker-handler dolist (form parent env)
+  (assert (>= (length form) 3))
+  (with-form-object (dt dolist-form :parent parent :source form)
+    (setf (var dt) (caadr form)
+	  (lst dt) (walk-form (cadadr form) dt env)
+	  (body dt) (walk-implict-progn
+		     dt (cddr form) (extend-walk-env env :let (var dt) :dummy)))))
+
+(defclass defun-form (function-object-form lambda-function-form)
+  ())
+
+(defwalker-handler defun (form parent env)
+  (assert (>= (length form) 3))
+  (with-form-object (f defun-form :parent parent :source form)
+    (setf (name f) (cadr form))
+    (let ((l (walk-lambda `(lambda ,(caddr form) ,(cadddr form)) f env)))
+      (setf (arguments f) (arguments l)
+	    (body f) (body l)
+	    (declares f) (declares l)))))
 
 ;;;; ** Implementation specific walkers
 

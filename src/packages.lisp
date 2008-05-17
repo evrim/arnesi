@@ -126,6 +126,14 @@
    #:var
    #:vars-form
 
+   ;; Extra Walker Definitions
+   #:dotimes-form
+   #:var
+   #:how-many
+   #:dolist-form
+   #:lst
+   #:defun-form
+   
    #:defunwalker-handler
    #:unwalk-form
    #:unwalk-forms

@@ -280,6 +280,23 @@
 (defunwalker-handler unwind-protect-form (protected-form cleanup-form)
   `(unwind-protect ,(unwalk-form protected-form) ,@(unwalk-forms cleanup-form)))
 
+
+;; EXTENSIONS -evrim
+;; Used by core-server js+
+;; -------------------------
+(defunwalker-handler dotimes-form (var how-many body)
+  `(dotimes (,var ,(unwalk-form how-many))
+     ,@(unwalk-forms body)))
+
+(defunwalker-handler dolist-form (var lst body)
+  `(dolist (,var ,(unwalk-form lst))
+     ,@(unwalk-forms body)))
+
+(defunwalker-handler defun-form (name arguments declares body)
+  `(defun ,name ,(unwalk-lambda-list arguments)
+     ,@(unwalk-forms declares)
+     ,@(unwalk-forms body)))
+
 ;; Copyright (c) 2006, Hoan Ton-That
 ;; All rights reserved. 
 ;; 
