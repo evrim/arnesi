@@ -1018,6 +1018,18 @@
 	    (body f) (body l)
 	    (declares f) (declares l)))))
 
+(defclass cond-form (form)
+  ((conditions :accessor conditions :initarg :conditions)))
+
+(defwalker-handler cond (form parent env)
+  (with-form-object (kond cond-form :parent parent :source form)
+    (setf (conditions kond)
+	  (nreverse
+	   (reduce (lambda (acc atom)
+		     (cons (mapcar (rcurry #'walk-form parent env) atom)
+			   acc))
+		   (cdr form) :initial-value nil)))))
+
 ;;;; ** Implementation specific walkers
 
 ;;;; These are for forms which certain compilers treat specially but

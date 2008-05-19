@@ -133,6 +133,8 @@
    #:dolist-form
    #:lst
    #:defun-form
+   #:cond-form
+   #:conditions
    
    #:defunwalker-handler
    #:unwalk-form

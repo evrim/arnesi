@@ -159,8 +159,10 @@
 
 ;;;; IF
 
-(defunwalker-handler if-form (consequent then else)
-  `(if ,(unwalk-form consequent) ,(unwalk-form then) ,(unwalk-form else)))
+(defunwalker-handler if-form (consequent then else)  
+  `(if ,(unwalk-form consequent)
+       ,(unwalk-form then)
+       ,(if else (unwalk-form else))))
 
 ;;;; FLET/LABELS
 
@@ -296,6 +298,9 @@
   `(defun ,name ,(unwalk-lambda-list arguments)
      ,@(unwalk-forms declares)
      ,@(unwalk-forms body)))
+
+(defunwalker-handler cond-form (conditions)
+  `(cond ,@(mapcar #'unwalk-forms conditions)))
 
 ;; Copyright (c) 2006, Hoan Ton-That
 ;; All rights reserved. 

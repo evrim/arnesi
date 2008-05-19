@@ -172,7 +172,9 @@
     (value)
   (if value
       (evaluate/cc then lex-env dyn-env k)
-      (evaluate/cc else lex-env dyn-env k)))
+      (if else
+	  (evaluate/cc else lex-env dyn-env k)
+	  (kontinue k nil))))
 
 (defmethod evaluate/cc ((if if-form) lex-env dyn-env k)
   (evaluate/cc (consequent if) lex-env dyn-env
