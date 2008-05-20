@@ -1013,7 +1013,7 @@
   (assert (>= (length form) 3))
   (with-form-object (f defun-form :parent parent :source form)
     (setf (name f) (cadr form))
-    (let ((l (walk-lambda `(lambda ,(caddr form) ,(cadddr form)) f env)))
+    (let ((l (walk-lambda `(lambda ,(caddr form) ,@(cdddr form)) f env)))
       (setf (arguments f) (arguments l)
 	    (body f) (body l)
 	    (declares f) (declares l)))))
