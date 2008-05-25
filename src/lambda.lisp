@@ -57,13 +57,14 @@
   (lambda (&rest args)
     (apply function (append initial-args args))))
 
-(defun rcurry (function &rest initial-args)
-  "Returns a function which will call FUNCTION passing it the
+(eval-always
+  (defun rcurry (function &rest initial-args)
+    "Returns a function which will call FUNCTION passing it the
   passed args and then INITIAL-ARGS.
 
  (funcall (rcurry #'list 1) 2) ==> (list 2 1)"
-  (lambda (&rest args)
-    (apply function (append args initial-args))))
+    (lambda (&rest args)
+      (apply function (append args initial-args)))))
 
 (defun noop (&rest args)
   "Do nothing."
