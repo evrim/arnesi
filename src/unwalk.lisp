@@ -294,6 +294,14 @@
   `(dolist (,var ,(unwalk-form lst))
      ,@(unwalk-forms body)))
 
+(defunwalker-handler do-form (varlist endlist declares body)
+  `(do ,(mapcar (lambda (var)
+		  (cons (car var)
+			(mapcar #'unwalk-form (cdr var))))
+		varlist)
+       ,(mapcar #'unwalk-form endlist)
+     ,@(mapcar #'unwalk-form body)))
+
 (defunwalker-handler defun-form (name arguments declares body)
   `(defun ,name ,(unwalk-lambda-list arguments)
      ,@(unwalk-forms declares)
