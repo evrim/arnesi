@@ -135,6 +135,9 @@
    #:defun-form
    #:cond-form
    #:conditions
+   #:do-form
+   #:varlist
+   #:endlist
    
    #:defunwalker-handler
    #:unwalk-form

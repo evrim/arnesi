@@ -1006,6 +1006,23 @@
 	  (body dt) (walk-implict-progn
 		     dt (cddr form) (extend-walk-env env :let (var dt) :dummy)))))
 
+(defclass do-form (form implicit-progn-mixin)
+  ((varlist :accessor varlist :initarg :varlist)
+   (endlist :accessor endlist :initarg :endlist)))
+
+(defwalker-handler do (form parent env)
+  (assert (>= (length form) 3))
+  (with-form-object (do-form do-form :parent parent :source form)
+    (setf (varlist do-form) (mapcar (lambda (var)
+				      (assert (symbolp (car var)))
+				      (extend-walk-env env :let (car var) :dummy)
+				      (cons (car var)
+					    (mapcar (rcurry #'walk-form do-form env)
+						    (cdr var))))
+				    (cadr form))
+	  (endlist do-form) (mapcar (rcurry #'walk-form do-form env) (caddr form))
+	  (body do-form) (walk-implict-progn do-form (cdddr form) env))))
+
 (defclass defun-form (function-object-form lambda-function-form)
   ())
 
