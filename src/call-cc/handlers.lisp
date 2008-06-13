@@ -309,6 +309,10 @@
   (declare (ignore lex-env dyn-env))
   (kontinue k (value c)))
 
+(defmethod evaluate/cc ((c eval-when-form) lex-env dyn-env k)
+  (declare (ignore lex-env dyn-env))
+  (kontinue k nil))
+
 ;; Copyright (c) 2002-2006, Edward Marco Baringer
 ;; All rights reserved. 
 ;; 
