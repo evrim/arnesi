@@ -176,7 +176,7 @@
                               ;; already found the docstring, this is source
                               (done)
                               (if (cdr body)
-                                  ;; found the doc string
+                                 ;; found the doc string
                                   (setf documentation form)
                                   ;; this looks like a doc string, but
                                   ;; it's the only form in body, so
@@ -237,8 +237,7 @@
 		   `(dolist (,var ,list)
 		      (when ,newdeclare (push ,newdeclare declares))
                       (extend-walk-env environment :declare ,@datum))))
-	(destructuring-bind (type &rest arguments)
-	    declaration
+	(destructuring-bind (type &rest arguments) declaration
 	  (case type
 	    (dynamic-extent
 	     (extend-env (var arguments)
@@ -977,13 +976,20 @@
 ;; Used by core-server js+
 ;; -------------------------
 ;; TODO: implement declares -evrim.
+(defmacro defwalker-handler-1 (name (form parent lexical-env)
+			       &body body)
+  `(defwalker-handler ,name (,form ,parent ,lexical-env)
+     (if *walker-expand-macros-p*
+	 (walk-form (macroexpand-1 ,form) ,parent ,lexical-env)
+	 (progn
+	   ,@body))))
+
 (defclass dotimes-form (form implicit-progn-with-declare-mixin)
   ((var :accessor var :initarg :var)
    (how-many :accessor how-many :initarg :how-many)))
 
-(defwalker-handler dotimes (form parent env)
+(defwalker-handler-1 dotimes (form parent env)
   (assert (>= (length form) 3))
-  (describe (cddr form))
   (with-form-object (dt dotimes-form :parent parent :source form)
     (setf (var dt) (caadr form)
 	  (how-many dt) (walk-form (cadadr form) dt env))
@@ -998,7 +1004,7 @@
   ((var :accessor var :initarg :var)
    (lst :accessor lst :initarg :lst)))
 
-(defwalker-handler dolist (form parent env)
+(defwalker-handler-1 dolist (form parent env)
   (assert (>= (length form) 3))
   (with-form-object (dt dolist-form :parent parent :source form)
     (setf (var dt) (caadr form)
@@ -1010,7 +1016,7 @@
   ((varlist :accessor varlist :initarg :varlist)
    (endlist :accessor endlist :initarg :endlist)))
 
-(defwalker-handler do (form parent env)
+(defwalker-handler-1 do (form parent env)
   (assert (>= (length form) 3))
   (with-form-object (do-form do-form :parent parent :source form)
     (setf (varlist do-form) (mapcar (lambda (var)
@@ -1026,7 +1032,7 @@
 (defclass defun-form (function-object-form lambda-function-form)
   ())
 
-(defwalker-handler defun (form parent env)
+(defwalker-handler-1 defun (form parent env)
   (assert (>= (length form) 3))
   (with-form-object (f defun-form :parent parent :source form)
     (setf (name f) (cadr form))
@@ -1038,7 +1044,7 @@
 (defclass cond-form (form)
   ((conditions :accessor conditions :initarg :conditions)))
 
-(defwalker-handler cond (form parent env)
+(defwalker-handler-1 cond (form parent env)
   (with-form-object (kond cond-form :parent parent :source form)
     (setf (conditions kond)
 	  (nreverse

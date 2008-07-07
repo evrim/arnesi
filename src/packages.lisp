@@ -99,7 +99,7 @@
    #:consequent
    #:declares
    #:default-value
-;; #:else ; iterate
+   #:else
    #:enclosing-tagbody
    #:eval-when-times
    #:first-form
@@ -125,7 +125,7 @@
    #:values-form
    #:var
    #:vars-form
-
+   
    ;; Extra Walker Definitions
    #:dotimes-form
    #:var
