@@ -19,7 +19,7 @@
 	(kontinue k value)
 	(if (boundp (name var))
 	    (kontinue k (symbol-value (name var)))
-	    (kontinue k (lookup lex-env :let (name var)))))))
+	    (kontinue k (lookup lex-env :let (name var) :error-p t))))))
 
 ;;;; Constants
 

@@ -107,7 +107,7 @@
      ',name))
 
 (defclass form ()
-  ((parent :accessor parent :initarg :parent)
+  ((parent :accessor parent :initarg :parent :initform nil)
    (source :accessor source :initarg :source)))
 
 (defmethod make-load-form ((object form) &optional env)
