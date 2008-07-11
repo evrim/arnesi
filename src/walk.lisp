@@ -10,17 +10,16 @@
   "When non-NIL any references to undefined functions or
   variables will signal a warning.")
 
-(defvar *walker-expand-macros-p* t "Expand macros during walk")
+(defvar *walker-expander* #'macroexpand-1
+  "Default expander for walker")
 
 (defun walk-form (form &optional (parent nil) (env (make-walk-env)))
   "Walk FORM and return a FORM object."
-  (let ((form (if *walker-expand-macros-p*
-		  (macroexpand-1 form (cdr env))
-		  form)))
+  (let ((form (funcall *walker-expander* form (cdr env))))
     (funcall (find-walker-handler form) form parent env)))
 
 (defun walk-form-no-expand (form &optional (parent nil) (env (make-walk-env)))
-  (let ((*walker-expand-macros-p* nil))
+  (let ((*walker-expander* (lambda (form env) (declare (ignore env)) form)))
     (funcall (find-walker-handler form) form parent env)))
 
 (defun make-walk-env (&optional lexical-env)
@@ -331,7 +330,8 @@
 (defwalker-handler +atom-marker+ (form parent env)
   (declare (special *macroexpand*))
   (cond
-    ((not (or (symbolp form) (consp form)))
+    ((or (not (or (symbolp form) (consp form)))
+	 (constantp form))
      (make-instance 'constant-form :value form
                     :parent parent :source form))
     ((lookup-walk-env env :let form)
@@ -342,8 +342,8 @@
                     :parent parent :source form))
     ((lookup-walk-env env :symbol-macrolet form)
      (walk-form (lookup-walk-env env :symbol-macrolet form) parent env))
-    ((nth-value 1 (macroexpand-1 form))     
-     (walk-form (macroexpand-1 form) parent env))
+    ((nth-value 1 (funcall *walker-expander* form))     
+     (walk-form (funcall *walker-expander* form) parent env))
     (t
      (when (and *warn-undefined*
                 (not (boundp form)))
@@ -382,7 +382,7 @@
       (when (lookup-walk-env env :macrolet op)
         (return (walk-form (funcall (lookup-walk-env env :macrolet op) form (cdr env)) parent env)))
       (when (and (symbolp op) *walker-expand-macros-p* (macro-function op))
-	(multiple-value-bind (expansion expanded) (macroexpand-1 form (cdr env))
+	(multiple-value-bind (expansion expanded) (funcall *walker-expander* form (cdr env))
 	  (when expanded
 	    (return (walk-form expansion parent env)))))
       (let ((app (if (lookup-walk-env env :flet op)
@@ -723,12 +723,11 @@
 (defwalker-handler let (form parent env)
   (with-form-object (let let-form :parent parent :source form)
     (setf (binds let) (mapcar (lambda (binding)
-                                   (destructuring-bind (var &optional initial-value)
-                                       (ensure-list binding)
-                                     (cons var (walk-form initial-value let env))))
-                                 (second form)))
-    (multiple-value-bind (b e d declarations)
-        (split-body (cddr form) env :parent let :declare t)
+				(destructuring-bind (var &optional initial-value) (ensure-list binding)
+				  (cons var (walk-form initial-value let env))))
+			      (second form)))
+    (mapc (lambda (bind) (extend-walk-env env :let (car bind) :dummy)) (binds let))
+    (multiple-value-bind (b e d declarations) (split-body (cddr form) env :parent let :declare t)
       (declare (ignore b e d))
       (dolist* ((var . value) (binds let))
         (declare (ignore value))
@@ -738,7 +737,7 @@
 		     declarations)
 	    (extend-walk-env env :let var :dummy)))
       (multiple-value-setf ((body let) nil (declares let))
-                           (walk-implict-progn let (cddr form) env :declare t)))))
+	(walk-implict-progn let (cddr form) env :declare t)))))
 
 (defclass let*-form (variable-binding-form)
   ())
@@ -749,7 +748,8 @@
       (push (cons var (walk-form initial-value let* env)) (binds let*))
       (extend-walk-env env :let var :dummy))
     (setf (binds let*) (nreverse (binds let*)))
-    (multiple-value-setf ((body let*) nil (declares let*)) (walk-implict-progn let* (cddr form) env :declare t))))
+    (multiple-value-setf ((body let*) nil (declares let*))
+      (walk-implict-progn let* (cddr form) env :declare t))))
 
 ;;;; LOAD-TIME-VALUE
 
@@ -975,20 +975,11 @@
 ;; EXTENSIONS -evrim
 ;; Used by core-server js+
 ;; -------------------------
-;; TODO: implement declares -evrim.
-(defmacro defwalker-handler-1 (name (form parent lexical-env)
-			       &body body)
-  `(defwalker-handler ,name (,form ,parent ,lexical-env)
-     (if *walker-expand-macros-p*
-	 (walk-form (macroexpand-1 ,form) ,parent ,lexical-env)
-	 (progn
-	   ,@body))))
-
 (defclass dotimes-form (form implicit-progn-with-declare-mixin)
   ((var :accessor var :initarg :var)
    (how-many :accessor how-many :initarg :how-many)))
 
-(defwalker-handler-1 dotimes (form parent env)
+(defwalker-handler dotimes (form parent env)
   (assert (>= (length form) 3))
   (with-form-object (dt dotimes-form :parent parent :source form)
     (setf (var dt) (caadr form)
@@ -1004,7 +995,7 @@
   ((var :accessor var :initarg :var)
    (lst :accessor lst :initarg :lst)))
 
-(defwalker-handler-1 dolist (form parent env)
+(defwalker-handler dolist (form parent env)
   (assert (>= (length form) 3))
   (with-form-object (dt dolist-form :parent parent :source form)
     (setf (var dt) (caadr form)
@@ -1016,7 +1007,7 @@
   ((varlist :accessor varlist :initarg :varlist)
    (endlist :accessor endlist :initarg :endlist)))
 
-(defwalker-handler-1 do (form parent env)
+(defwalker-handler do (form parent env)
   (assert (>= (length form) 3))
   (with-form-object (do-form do-form :parent parent :source form)
     (setf (varlist do-form) (mapcar (lambda (var)
@@ -1032,7 +1023,7 @@
 (defclass defun-form (function-object-form lambda-function-form)
   ())
 
-(defwalker-handler-1 defun (form parent env)
+(defwalker-handler defun (form parent env)
   (assert (>= (length form) 3))
   (with-form-object (f defun-form :parent parent :source form)
     (setf (name f) (cadr form))
@@ -1044,7 +1035,7 @@
 (defclass cond-form (form)
   ((conditions :accessor conditions :initarg :conditions)))
 
-(defwalker-handler-1 cond (form parent env)
+(defwalker-handler cond (form parent env)
   (with-form-object (kond cond-form :parent parent :source form)
     (setf (conditions kond)
 	  (nreverse
