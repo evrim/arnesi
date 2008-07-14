@@ -381,7 +381,7 @@
                                                   args)))))
       (when (lookup-walk-env env :macrolet op)
         (return (walk-form (funcall (lookup-walk-env env :macrolet op) form (cdr env)) parent env)))
-      (when (and (symbolp op) *walker-expand-macros-p* (macro-function op))
+      (when (and (symbolp op) (macro-function op))
 	(multiple-value-bind (expansion expanded) (funcall *walker-expander* form (cdr env))
 	  (when expanded
 	    (return (walk-form expansion parent env)))))
