@@ -24,10 +24,12 @@
 ;;;; Atoms
 
 (defunwalker-handler constant-form (value)
-  (typecase value
-    (symbol `(quote ,value))
-    (cons   `(quote ,value))
-    (t value)))
+  (if (constantp value)
+      value
+      (typecase value
+	(symbol `(quote ,value))
+	(cons   `(quote ,value))
+	(t value))))
 
 (defunwalker-handler variable-reference (name)
   name)
@@ -137,7 +139,7 @@
 
 ;;;; BLOCK/RETURN-FROM
 
-(defunwalker-handler block-form (name body)
+(defunwalker-handler block-form (name declares body)
   `(block ,name ,@(unwalk-forms body)))
 
 (defunwalker-handler return-from-form (target-block result)
@@ -211,8 +213,8 @@
 
 ;;;; LOAD-TIME-VALUE
 
-(defunwalker-handler load-time-value-form (value read-only-p)
-  `(load-time-value ,(unwalk-form value) ,read-only-p))
+(defunwalker-handler load-time-value-form (body read-only-p)
+  `(load-time-value ,body ,read-only-p))
 
 ;;;; LOCALLY
 

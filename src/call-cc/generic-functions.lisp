@@ -11,7 +11,9 @@
      (setf (fdefinition/cc ',name 'defun/cc)
            (make-instance 'closure/cc
                           :code (walk-form '(lambda ,arguments
-                                             (block ,name ,@body))
+                                             (block ,name
+					       (let ()
+						 ,@body)))
                                            nil nil)
                           :env nil))
      (defun ,name ,arguments

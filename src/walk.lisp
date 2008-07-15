@@ -15,12 +15,14 @@
 
 (defun walk-form (form &optional (parent nil) (env (make-walk-env)))
   "Walk FORM and return a FORM object."
-  (let ((form (funcall *walker-expander* form (cdr env))))
-    (funcall (find-walker-handler form) form parent env)))
+  (multiple-value-bind (expansion expanded) (funcall *walker-expander* form (cdr env))
+    (if expanded
+	(walk-form expansion parent env)
+	(funcall (find-walker-handler form) form parent env))))
 
 (defun walk-form-no-expand (form &optional (parent nil) (env (make-walk-env)))
   (let ((*walker-expander* (lambda (form env) (declare (ignore env)) form)))
-    (funcall (find-walker-handler form) form parent env)))
+    (walk-form form parent env)))
 
 (defun make-walk-env (&optional lexical-env)
   (let ((walk-env '()))
@@ -577,14 +579,11 @@
    (result :accessor result :initarg :result)))
 
 (defwalker-handler block (form parent env)
-  (destructuring-bind (block-name &rest body)
-      (cdr form)
-    (with-form-object (block block-form
-                       :parent parent :source form
-                       :name block-name)
-      (setf (body block) (walk-implict-progn block
-                                             body
-                                             (register-walk-env env :block block-name block))))))
+  (destructuring-bind (block-name &rest body) (cdr form)
+    (with-form-object (block block-form :parent parent :source form :name block-name)
+      (setf (body block)
+	    (walk-implict-progn block body
+	      (register-walk-env env :block block-name block))))))
 
 (define-condition return-from-unknown-block (error)
   ((block-name :accessor block-name :initarg :block-name))
@@ -754,14 +753,19 @@
 ;;;; LOAD-TIME-VALUE
 
 (defclass load-time-value-form (form)
-  ((value :accessor value)
-   (read-only-p :accessor read-only-p)))
+  ((body :accessor body :initarg :body)
+   (read-only-p :initform nil :accessor read-only-p :initarg :read-only-p)
+   (value :accessor value)))
+
+(defmethod initialize-instance :after ((self load-time-value-form) &key)
+  (setf (value self) (eval (body self))))
 
 (defwalker-handler load-time-value (form parent env)
-  (with-form-object (load-time-value load-time-value-form
-                                     :parent parent :source form)
-    (setf (value load-time-value) (walk-form (second form) load-time-value env)
-          (read-only-p load-time-value) (third form))))
+  (assert (<= (length form) 3))
+  (with-form-object (load-time-value load-time-value-form :parent parent
+                                     :body form
+                                     :read-only-p (third form))
+    (setf (body load-time-value) (second form))))
 
 ;;;; LOCALLY
 
@@ -953,23 +957,6 @@
                                     :source form)
     (setf (protected-form unwind-protect) (walk-form (second form) unwind-protect env)
           (cleanup-form unwind-protect) (walk-implict-progn unwind-protect (cddr form) env))))
-
-;;;; LOAD-TIME-VALUE
-
-(defclass load-time-value-form (form)
-  ((body :accessor body :initarg :body)
-   (read-only :initform nil :accessor read-only-p :initarg :read-only)
-   (value :accessor value)))
-
-(defmethod initialize-instance :after ((self load-time-value-form) &key)
-  (setf (value self) (eval (body self))))
-
-(defwalker-handler load-time-value (form parent env)
-  (assert (<= (length form) 3))
-  (with-form-object (load-time-value load-time-value-form :parent parent
-                                     :body form
-                                     :read-only (third form))
-    (setf (body load-time-value) (second form))))
 
 
 ;; EXTENSIONS -evrim
