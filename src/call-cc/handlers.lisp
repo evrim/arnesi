@@ -249,6 +249,14 @@
   (funcall (second (lookup lex-env :lexical-let var :error-p t)) value)
   (kontinue k value))
 
+(defk k-for-special-setq (var lex-env dyn-env k) (value)
+  (multiple-value-bind (current foundp) (lookup dyn-env :let var)
+    (declare (ignore current))
+    (if foundp
+	(setf (lookup dyn-env :let var) value)
+	(setf (symbol-value var) value))
+    (kontinue k value)))
+
 (defmethod evaluate/cc ((setq setq-form) lex-env dyn-env k)
   (macrolet ((if-found (&key in-env of-type kontinue-with)
                `(multiple-value-bind (value foundp)
