@@ -2,7 +2,7 @@
 
 (in-package :it.bese.arnesi)
 
-;;;; ** Handlres for common-lisp special operators
+;;;; ** Handles for common-lisp special operators
 
 ;;;; Variable References
 
@@ -13,13 +13,14 @@
   (kontinue k (lookup lex-env :let (name var) :error-p t)))
 
 (defmethod evaluate/cc ((var free-variable-reference) lex-env dyn-env k)
-;;  (declare (ignore lex-env))  
+  (declare (ignore lex-env))
   (multiple-value-bind (value foundp) (lookup dyn-env :let (name var))
     (if foundp
 	(kontinue k value)
 	(if (boundp (name var))
 	    (kontinue k (symbol-value (name var)))
-	    (kontinue k (lookup lex-env :let (name var) :error-p t))))))
+;;	    (kontinue k (lookup lex-env :let (name var)))
+	    (error "Unbound symbol ~S" (name var))))))
 
 ;;;; Constants
 
@@ -46,16 +47,14 @@
   (evaluate/cc (tag catch) lex-env dyn-env
                `(catch-tag-k ,catch ,lex-env ,dyn-env ,k)))
 
-(defk catch-tag-k (catch lex-env dyn-env k)
-    (tag)
+(defk catch-tag-k (catch lex-env dyn-env k) (tag)
   (evaluate-progn/cc (body catch) lex-env (register dyn-env :catch tag k) k))
 
 (defmethod evaluate/cc ((throw throw-form) lex-env dyn-env k)
   (evaluate/cc (tag throw) lex-env dyn-env
                `(throw-tag-k ,throw ,lex-env ,dyn-env ,k)))
 
-(defk throw-tag-k (throw lex-env dyn-env k)
-    (tag)
+(defk throw-tag-k (throw lex-env dyn-env k) (tag)
   (evaluate/cc (value throw) lex-env dyn-env
                (lookup dyn-env :catch tag :error-p t)))
 
@@ -97,8 +96,8 @@
 (defmethod evaluate/cc ((let let-form) lex-env dyn-env k)  
   (evaluate-let/cc (binds let) nil (body let) lex-env (import-specials let dyn-env) k))
 
-(defk k-for-evaluate-let/cc (var remaining-bindings evaluated-bindings body lex-env dyn-env k)
-    (value)
+(defk k-for-evaluate-let/cc
+    (var remaining-bindings evaluated-bindings body lex-env dyn-env k) (value)
   (evaluate-let/cc remaining-bindings
                    (cons (cons var value) evaluated-bindings)
                    body lex-env dyn-env k))
@@ -121,9 +120,9 @@
 	(setf lex-env (register lex-env :let var value))
 	(if (special-var-p var (parent (first body)))
 	    (setf dyn-env (register dyn-env :let var value)))
-;;   	(if (special-var-p var (parent (first body)))
-;;     	    (setf dyn-env (register dyn-env :let var value))
-;;     	    (setf lex-env (register lex-env :let var value)))
+;;;   	(if (special-var-p var (parent (first body)))
+;;;     	    (setf dyn-env (register dyn-env :let var value))
+;;;     	    (setf lex-env (register lex-env :let var value)))
 	)))
 
 (defun special-var-p (var declares-mixin)
@@ -204,12 +203,11 @@
   (if remaining-arguments
       (evaluate/cc (car remaining-arguments) lex-env dyn-env
                    `(k-for-m-v-c  ,(cdr remaining-arguments) ,evaluated-arguments ,lex-env ,dyn-env ,k))
-      (destructuring-bind (function &rest arguments)
-          evaluated-arguments
-        (etypecase function
-          (closure/cc (apply-lambda/cc function arguments dyn-env k))
-          (function (apply #'kontinue k (multiple-value-list
-                                         (multiple-value-call function (values-list arguments)))))))))
+      (destructuring-bind (function &rest arguments) evaluated-arguments
+	(etypecase function
+	  (closure/cc (apply-lambda/cc function arguments dyn-env k))
+	  (function (apply #'kontinue k (multiple-value-list
+					 (multiple-value-call function (values-list arguments)))))))))
 
 (defmethod evaluate/cc ((m-v-c multiple-value-call-form) lex-env dyn-env k)
   (evaluate-m-v-c (list* (func m-v-c) (arguments m-v-c)) '() lex-env dyn-env k))
@@ -235,18 +233,19 @@
 
 ;;;; SETQ
 
-(defk k-for-local-setq (var lex-env dyn-env k)
-    (value)
+(defk k-for-local-setq (var lex-env dyn-env k) (value)
   (setf (lookup lex-env :let var :error-p t) value)
   (kontinue k value))
 
-(defk k-for-free-setq (var lex-env dyn-env k)
-    (value)
-  (setf (symbol-value var) value)
-  (kontinue k value))
+(defk k-for-free-setq (var lex-env dyn-env k) (value)
+  (multiple-value-bind (current foundp) (lookup dyn-env :let var)
+    (declare (ignore current))
+    (if foundp
+	(setf (lookup dyn-env :let var) value)
+	(setf (symbol-value var) value))
+    (kontinue k value)))
 
-(defk k-for-local-lexical-setq (var lex-env dyn-env k)
-    (value)
+(defk k-for-local-lexical-setq (var lex-env dyn-env k) (value)
   (funcall (second (lookup lex-env :lexical-let var :error-p t)) value)
   (kontinue k value))
 
@@ -312,6 +311,7 @@
 (defmethod evaluate/cc ((c eval-when-form) lex-env dyn-env k)
   (declare (ignore lex-env dyn-env))
   (kontinue k nil))
+
 
 ;; Copyright (c) 2002-2006, Edward Marco Baringer
 ;; All rights reserved. 

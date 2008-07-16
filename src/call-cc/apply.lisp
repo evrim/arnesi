@@ -311,11 +311,15 @@
     ((and (typep operator 'generic-function)
 	   (eql 'defmethod/cc (nth-value 1 (fdefinition/cc (mopp:generic-function-name operator)))))
      (apply-lambda/cc (apply operator effective-arguments) effective-arguments dyn-env k))
-    ((null dyn-env)
-     (apply #'kontinue k (multiple-value-list (apply operator effective-arguments))))
     (t
-     (apply #'kontinue k (eval `(special-environment ,dyn-env
-				  (multiple-value-list (apply ',operator ',effective-arguments))))))))
+     (apply #'kontinue k (multiple-value-list (apply operator effective-arguments))))
+    ;; ((null dyn-env)
+;;      (apply #'kontinue k (multiple-value-list (apply operator effective-arguments))))
+;;     (t
+;;      (warn "Slow apply ~A" operator)
+;;      (apply #'kontinue k (eval `(special-environment ,dyn-env
+;; 				  (multiple-value-list (apply ',operator ',effective-arguments))))))
+    ))
 
 (defmethod apply-lambda/cc ((operator symbol) effective-arguments dyn-env k)
   "Method used when we're applying a regular, non cc, function object."
