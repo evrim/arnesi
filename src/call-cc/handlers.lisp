@@ -259,25 +259,24 @@
 
 (defmethod evaluate/cc ((setq setq-form) lex-env dyn-env k)
   (macrolet ((if-found (&key in-env of-type kontinue-with)
-               `(multiple-value-bind (value foundp)
-                    (lookup ,in-env ,of-type (var setq))
-                  (declare (ignore value))
-                  (when foundp
-                    (return-from evaluate/cc
-                      (evaluate/cc (value setq) lex-env dyn-env
-                                   `(,',kontinue-with ,(var setq) ,lex-env ,dyn-env ,k)))))))
+	       `(multiple-value-bind (value foundp) (lookup ,in-env ,of-type (unwalk-form (var setq)))
+		  (declare (ignore value))
+		  (when foundp
+		    (return-from evaluate/cc
+		      (evaluate/cc (value setq) lex-env dyn-env
+				   `(,',kontinue-with ,(unwalk-form (var setq)) ,lex-env ,dyn-env ,k)))))))
     (if-found :in-env lex-env
-              :of-type :let
-              :kontinue-with k-for-local-setq)
+	      :of-type :let
+	      :kontinue-with k-for-local-setq)
     (if-found :in-env dyn-env
-              :of-type :let
-              :kontinue-with k-for-special-setq)
+	      :of-type :let
+	      :kontinue-with k-for-special-setq)
     (if-found :in-env lex-env
-              :of-type :lexical-let
-              :kontinue-with k-for-local-lexical-setq)
+	      :of-type :lexical-let
+	      :kontinue-with k-for-local-lexical-setq)
     (evaluate/cc (value setq)
-                       lex-env dyn-env
-                       `(k-for-free-setq ,(var setq) ,lex-env ,dyn-env ,k))))
+		 lex-env dyn-env
+		 `(k-for-free-setq ,(unwalk-form (var setq)) ,lex-env ,dyn-env ,k))))
 
 ;;;; SYMBOL-MACROLET
 

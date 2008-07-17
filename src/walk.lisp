@@ -863,12 +863,11 @@
          do (push `(setq ,name ,value) effective-code))
     (if (= 1 (length effective-code))
         ;; only one form, the "simple case"
-        (destructuring-bind (type var value)
-            (first effective-code)
+        (destructuring-bind (type var value) (first effective-code)
           (ecase type
-            (setq (with-form-object (setq setq-form :parent parent :source form
-                                          :var var)
-                    (setf (value setq) (walk-form value setq env))))
+            (setq (with-form-object (setq setq-form :parent parent :source form)
+                    (setf (value setq) (walk-form value setq env)
+			  (var setq) (walk-form var setq env))))
             (setf (walk-form (first effective-code) parent env))))
         ;; multiple forms
         (with-form-object (progn progn-form :parent parent :source form)
