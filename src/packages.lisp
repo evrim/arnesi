@@ -372,7 +372,6 @@
    #:defmacalias
    #:fun
    #:set
-   #:new
    #:append1
    #:last1
    #:singlep

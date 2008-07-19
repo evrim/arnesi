@@ -22,6 +22,10 @@
    (env :accessor env :initarg :env))
   #+sbcl (:metaclass mopp:funcallable-standard-class))
 
+(defprint-object (self closure/cc)
+  (and (typep (code self) 'lambda-function-form)
+       (princ (format nil "(~{~A~^ ~})" (mapcar #'name (arguments (code self)))))))
+
 #+sbcl
 (defmethod initialize-instance :after ((fun closure/cc) &rest initargs)
   (declare (ignore initargs))
