@@ -76,21 +76,20 @@
   (dolist (anc ancestors)
     (pushnew l (children anc) :test (lambda (a b)
 				     (eql (name a) (name b))))))
-
-(defun log-level-setter-inspector-action-for (prompt current-level setter)
-  (lambda ()
-    (with-simple-restart
-        (abort "Abort setting log level")
-      (let ((value-string (swank::eval-in-emacs
-                           `(condition-case c
-                             (let ((arnesi-log-levels '(,@(mapcar #'string-downcase (coerce *log-level-names* 'list)))))
-                               (slime-read-object ,prompt :history (cons 'arnesi-log-levels ,(1+ current-level))
-                                                  :initial-value ,(string-downcase (log-level-name-of current-level))))
-                             (quit nil)))))
-        (when (and value-string
-                   (not (string= value-string "")))
-          (funcall setter (eval (let ((*package* #.(find-package :arnesi)))
-                                  (read-from-string value-string)))))))))
+;; (defun log-level-setter-inspector-action-for (prompt current-level setter)
+;;   (lambda ()
+;;     (with-simple-restart
+;;         (abort "Abort setting log level")
+;;       (let ((value-string (swank::eval-in-emacs
+;;                            `(condition-case c
+;;                              (let ((arnesi-log-levels '(,@(mapcar #'string-downcase (coerce *log-level-names* 'list)))))
+;;                                (slime-read-object ,prompt :history (cons 'arnesi-log-levels ,(1+ current-level))
+;;                                                   :initial-value ,(string-downcase (log-level-name-of current-level))))
+;;                              (quit nil)))))
+;;         (when (and value-string
+;;                    (not (string= value-string "")))
+;;           (funcall setter (eval (let ((*package* #.(find-package :arnesi)))
+;;                                   (read-from-string value-string)))))))))
 
 ;;; Runtime levels
 (defmethod enabled-p ((cat log-category) level)
