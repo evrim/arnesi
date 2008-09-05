@@ -383,6 +383,18 @@
    #:enable-sharp-l
    #:enable-bracket-reader
    #:enable-pf-reader
+
+   ;; Search
+   #:core-search
+   #:string-search
+   #:integer-search
+
+   ;; Lisp2 Successors
+   #:form-successor
+   
+   ;; AST Search
+   #:ast-search
+   #:ast-search-type
    ))
 
 ;;;; * Colophon

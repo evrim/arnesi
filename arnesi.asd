@@ -21,6 +21,8 @@
 			       (:file "lambda-list")
 			       (:file "walk")
 			       (:file "unwalk")
+			       (:file "successors")
+			       (:file "search")
 			       (:file "lisp1"))
 			      :depends-on ("packages" "list" "mopp" "one-liners")
 			      :serial t)
@@ -57,7 +59,8 @@
                              (:file "specials" :depends-on ("packages" "hash"))
                              (:file "string" :depends-on ("packages" "list"))
                              (:file "time" :depends-on ("packages"))
-                             (:file "vector" :depends-on ("packages" "flow-control")))))
+                             (:file "vector" :depends-on ("packages" "flow-control"))
+			     (:file "search" :depends-on ("packages")))))
   :properties ((:features "v1.4.0" "v1.4.1" "v1.4.2" "cc-interpreter"
                           "join-strings-return-value" "getenv")))
 
