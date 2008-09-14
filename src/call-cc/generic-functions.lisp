@@ -47,17 +47,17 @@
 				   (convert-to-generic-lambda-list arguments)
 				   '()))
 	 (prog1
-	   (defmethod ,name ,@qlist ,arguments
-		      ,(when arguments 
-			     `(declare (ignorable ,@(extract-argument-names arguments :allow-specializers t))))
-		      ,@(when (stringp (first body))
-			      (list (pop body)))
-		      (make-instance 'closure/cc
-				     :code (walk-form '(lambda ,(clean-argument-list arguments)
-							(block ,name ,@body))
-						      nil nil)
-				     :env nil))
-	   (setf (fdefinition/cc ',name 'defmethod/cc) (function ,name)))))))
+	     (defmethod ,name ,@qlist ,arguments
+			,(when arguments 
+			       `(declare (ignorable ,@(extract-argument-names arguments :allow-specializers t))))
+			,@(when (stringp (first body))
+				(list (pop body)))
+			(make-instance 'closure/cc
+				       :code (walk-form '(lambda ,(clean-argument-list arguments)
+							  (block ,name ,@body))
+							nil nil)
+				       :env nil))	   
+	   (setf (fdefinition/cc ',name 'defmethod/cc) t))))))
 
 ;;;; CC-STANDARD (standard-combination for cc methods)
 
