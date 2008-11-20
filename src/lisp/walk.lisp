@@ -21,7 +21,7 @@
 	(funcall (find-walker-handler form) form parent env))))
 
 (defun walk-form-no-expand (form &optional (parent nil) (env (make-walk-env)))
-  (let ((*walker-expander* (lambda (form env) (declare (ignore env)) form)))
+  (let ((*walker-expander* (lambda (form &optional env) (declare (ignore env)) form)))
     (walk-form form parent env)))
 
 (defun make-walk-env (&optional lexical-env)
@@ -142,17 +142,17 @@
 
 (defmacro multiple-value-setf (places form)
   (loop
-       for place in places
-       for name = (gensym)
-       collect name into bindings
-       if (eql 'nil place)
-         collect `(declare (ignore ,name)) into ignores
-       else
-         collect `(setf ,place ,name) into body
-       finally (return
-                 `(multiple-value-bind ,bindings ,form
-                    ,@ignores
-                    ,@body))))
+     for place in places
+     for name = (gensym)
+     collect name into bindings
+     if (eql 'nil place)
+     collect `(declare (ignore ,name)) into ignores
+     else
+     collect `(setf ,place ,name) into body
+     finally (return
+	       `(multiple-value-bind ,bindings ,form
+		  ,@ignores
+		  ,@body))))
 
 (defun split-body (body env &key parent (docstring t) (declare t))
   (let ((documentation nil) 
@@ -344,7 +344,7 @@
                     :parent parent :source form))
     ((lookup-walk-env env :symbol-macrolet form)
      (walk-form (lookup-walk-env env :symbol-macrolet form) parent env))
-    ((nth-value 1 (funcall *walker-expander* form))     
+    ((nth-value 1 (funcall *walker-expander* form))
      (walk-form (funcall *walker-expander* form) parent env))
     (t
      (when (and *warn-undefined*
@@ -410,7 +410,7 @@
 (defclass function-form (form)
   ())
 
-(defclass lambda-function-form (function-form implicit-progn-with-declare-mixin)
+(defclass lambda-function-form (implicit-progn-with-declare-mixin function-form)
   ((arguments :accessor arguments :initarg :arguments)))
 
 (defclass function-object-form (form)
@@ -571,11 +571,12 @@
 
 ;;;; BLOCK/RETURN-FROM
 
-(defclass block-form (form implicit-progn-mixin)
+(defclass block-form (implicit-progn-mixin form)
   ((name :accessor name :initarg :name)))
 
 (defclass return-from-form (form)
   ((target-block :accessor target-block :initarg :target-block)
+   (name :accessor name :initarg :name)
    (result :accessor result :initarg :result)))
 
 (defwalker-handler block (form parent env)
@@ -591,17 +592,25 @@
              (format stream "Unable to return from block named ~S." (block-name condition)))))
 
 (defwalker-handler return-from (form parent env)
-  (destructuring-bind (block-name &optional (value '(values)))
-      (cdr form)
-    (if (lookup-walk-env env :block block-name)
-        (with-form-object (return-from return-from-form :parent parent :source form
-                           :target-block (lookup-walk-env env :block block-name))
-          (setf (result return-from) (walk-form value return-from env)))
-        (restart-case
-            (error 'return-from-unknown-block :block-name block-name)
-          (add-block ()
-            :report "Add this block and continue."
-            (walk-form form parent (register-walk-env env :block block-name :unknown-block)))))))
+  (destructuring-bind (block-name &optional (value '(values))) (cdr form)
+;;     (if (null (lookup-walk-env env :block block-name))
+;; 	(warn "Block ~A not found, cant return" block-name))
+
+    (with-form-object (return-from return-from-form :parent parent :source form
+				   :name block-name
+				   :target-block  (lookup-walk-env env :block block-name))
+      (setf (result return-from) (walk-form value return-from env)))
+    
+;;     (if (lookup-walk-env env :block block-name)
+;;         (with-form-object (return-from return-from-form :parent parent :source form
+;;                            :target-block (lookup-walk-env env :block block-name))
+;;           (setf (result return-from) (walk-form value return-from env)))
+;;         (restart-case
+;;             (error 'return-from-unknown-block :block-name block-name)
+;;           (add-block ()
+;;             :report "Add this block and continue."
+;;             (walk-form form parent (register-walk-env env :block block-name :unknown-block)))))
+    ))
 
 ;;;; CATCH/THROW
 
@@ -713,7 +722,7 @@
 
 ;;;; LET/LET*
 
-(defclass variable-binding-form (form binding-form-mixin implicit-progn-with-declare-mixin)
+(defclass variable-binding-form (binding-form-mixin implicit-progn-with-declare-mixin form)
   ())
 
 (defclass let-form (variable-binding-form)
@@ -819,7 +828,7 @@
 
 ;;;; PROGN
 
-(defclass progn-form (form implicit-progn-mixin)
+(defclass progn-form (implicit-progn-mixin form)
   ())
 
 (defwalker-handler progn (form parent env)
@@ -890,8 +899,8 @@
 
 ;;;; TAGBODY/GO
 
-(defclass tagbody-form (form implicit-progn-mixin)
-  ())
+(defclass tagbody-form (implicit-progn-mixin form)
+  ((tags :accessor tags :initarg :tags :initform nil)))
 
 (defclass go-tag-form (form)
   ((name :accessor name :initarg :name)))
@@ -911,15 +920,34 @@
       (loop
          for part on (body tagbody)
          if (go-tag-p (car part))
-           do (extend-walk-env env :tag (car part) (cdr part)))
+	 do (extend-walk-env env :tag (car part) (cdr part)))
       (loop
          for part on (body tagbody)
          if (go-tag-p (car part))
-           do (setf (car part) (make-instance 'go-tag-form :parent tagbody
-                                              :source (car part)
-                                              :name (car part)))
+	 do (setf (car part) (make-instance 'go-tag-form :parent tagbody
+					    :source (car part)
+					    :name (car part)))
          else
-           do (setf (car part) (walk-form (car part) tagbody env))))))
+	 do (setf (car part) (walk-form (car part) tagbody env)))
+      (setf (tags tagbody)
+	    (let ((tag nil))
+	      (nreverse
+	       (reduce (lambda (acc form)
+			 (cond
+			   ((null tag)
+			    (if (typep form 'go-tag-form)
+				(setq tag (slot-value form 'name)))
+			    acc)
+			   ((typep form 'go-tag-form)
+			    (setq tag (slot-value form 'name))
+			    acc)
+			   (t
+			    (let ((value (assoc tag acc)))
+			      (if value
+				  (setf (cdr value) (nreverse (cons form (nreverse (cdr value)))))
+				  (setf acc (cons (cons tag (list form)) acc))))
+			    acc)))
+		       (body tagbody) :initial-value '())))))))
 
 (defclass go-form (form)
   ((target-progn :accessor target-progn :initarg :target-progn)

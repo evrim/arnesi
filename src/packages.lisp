@@ -84,6 +84,7 @@
    #:setq-form
    #:symbol-macrolet-form
    #:tagbody-form
+   #:tags
    #:go-tag-form
    #:go-form
    #:the-form
