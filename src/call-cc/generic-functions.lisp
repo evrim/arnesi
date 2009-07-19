@@ -37,7 +37,8 @@
 
 (defmacro defmethod/cc (name &rest args)
   (let ((qlist (list (if (and (symbolp (car args))
-				  (not (null (car args))))
+			      (not (null (car args)))
+			      (not (null (cdr args))))
                          (pop args)
                          :primary))))
     (let ((arguments (car args))
@@ -50,7 +51,7 @@
 	     (defmethod ,name ,@qlist ,arguments
 			,(when arguments 
 			       `(declare (ignorable ,@(extract-argument-names arguments :allow-specializers t))))
-			,@(when (stringp (first body))
+			,@(when (and (stringp (first body)) (cdr body))
 				(list (pop body)))
 			(make-instance 'closure/cc
 				       :code (walk-form '(lambda ,(clean-argument-list arguments)
