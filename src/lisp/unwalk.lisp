@@ -90,9 +90,9 @@
 
 (defunwalker-handler keyword-function-argument-form (keyword-name name default-value supplied-p-parameter)
   (let ((default-value (unwalk-form default-value)))
-    (cond ((and keyword-name name default-value supplied-p-parameter)
+    (cond ((and keyword-name name supplied-p-parameter)
 	   `((,keyword-name ,name) ,default-value ,supplied-p-parameter))
-	  ((and name default-value supplied-p-parameter)
+	  ((and name supplied-p-parameter)
 	   `(,name ,default-value ,supplied-p-parameter))
 	  ((and name default-value)
 	   `(,name ,default-value))
