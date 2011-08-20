@@ -90,6 +90,7 @@
    #:the-form
    #:unwind-protect-form
    #:extract-argument-names
+   #:extract-apply-arguments
    #:walk-lambda-list
    #:walk-implict-progn
    #:arguments

@@ -17,6 +17,21 @@
 	      (nreverse vars)))
 	  (walk-lambda-list lambda-list nil '() :allow-specializers allow-specializers)))
 
+(defun extract-apply-arguments (lambda-list)
+  `(append
+    ,@(mapcar (lambda (arg)
+		(typecase arg
+		  (keyword-function-argument-form
+		   (if (supplied-p-parameter arg)
+		       `(if ,(supplied-p-parameter arg)
+			    (list ,(intern (string-upcase (name arg))
+					   (find-package :keyword))
+				  ,(name arg))
+			    nil)))
+		  (t
+		   `(list ,(name arg)))))
+	      (walk-lambda-list lambda-list nil nil :allow-specializers t))))
+
 (defun convert-to-generic-lambda-list (defmethod-lambda-list)
   (loop
      with generic-lambda-list = '()
