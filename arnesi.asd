@@ -33,7 +33,7 @@
                                            (:file "generic-functions")
                                            (:file "common-lisp-cc"))
                               :serial t
-                              :depends-on ("packages" :lisp "flow-control" "list" "string" "defclass-struct"))
+                              :depends-on ("packages" "io" :lisp "flow-control" "list" "string" "defclass-struct"))
 			     (:file "debug" :depends-on ("accumulation"))
                              (:file "decimal-arithmetic" :depends-on ("packages"))
                              (:file "defclass-struct" :depends-on ("packages" "list"))
