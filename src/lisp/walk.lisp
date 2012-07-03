@@ -464,20 +464,25 @@
       (dolist (argument lambda-list)
         (if (member argument '(&optional &key &rest))
             (setf state argument)
-            (progn
-              (push (case state
-                      (:required
-                       (if allow-specializers
-                           (walk-specialized-argument-form argument parent env)
-                           (walk-required-argument argument parent env)))
-                      (&optional (walk-optional-argument argument parent env))
-                      (&key
-                       (if (eql '&allow-other-keys argument)
-                           (make-instance 'allow-other-keys-function-argument-form
-                                          :parent parent :source argument)
-                           (walk-keyword-argument argument parent env)))
-                      (&rest (walk-rest-argument argument parent env)))
-                    arguments)
+            (let ((arg (case state
+			 (:required
+			  (if allow-specializers
+			      (walk-specialized-argument-form argument parent env)
+			      (walk-required-argument argument parent env)))
+			 (&optional (walk-optional-argument argument parent env))
+			 (&key
+			  (if (eql '&allow-other-keys argument)
+			      (make-instance 'allow-other-keys-function-argument-form
+					     :parent parent :source argument)
+			      (walk-keyword-argument argument parent env)))
+			 (&rest (walk-rest-argument argument parent env)))))
+              (push arg arguments)
+	      ;; They are locals, not free. -evrim.
+	      (typecase arg
+		(keyword-function-argument-form
+		 (if (supplied-p-parameter arg)
+		     (extend-walk-env env :let (supplied-p-parameter arg) t))))
+	      
               (extend-env (car arguments)))))
       (values (nreverse arguments) env))))
 

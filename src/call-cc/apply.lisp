@@ -282,7 +282,9 @@
                      (remf remaining-arguments (effective-keyword-name parameter))
                      (setf lex-env (register lex-env :let (name parameter) value))
                    (when (supplied-p-parameter parameter)
-                     (setf lex-env (register lex-env :let (supplied-p-parameter parameter) t))))))))
+                     (setf lex-env
+			   (register lex-env :let (supplied-p-parameter parameter)
+				     t))))))))
           (allow-other-keys-function-argument-form
            (when (cdr remaining-parameters)
              (error "Bad lambda list: ~S" (arguments (code operator))))
@@ -296,7 +298,15 @@
     (value)
   (apply-lambda/cc/keyword operator
                            (cdr remaining-parameters) remaining-arguments
-                           (register lex-env :let (name (first remaining-parameters)) value)
+			   ;; Fix supplied-p -evrim.
+                           (let* ((parameter (first remaining-parameters))
+				  (env (register lex-env :let (name parameter)
+						 value)))
+			     (if (supplied-p-parameter parameter)
+				 (register env :let (supplied-p-parameter
+						     parameter)
+					   nil)
+				 env))
                            dyn-env
                            k))
 
