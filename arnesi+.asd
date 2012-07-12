@@ -8,7 +8,7 @@
 
 (in-package :it.bese.arnesi.system)
 
-(defsystem :arnesi
+(defsystem :arnesi+
   :components ((:static-file "arnesi.asd")
                (:module :src
                 :components ((:file "accumulation" :depends-on ("packages" "one-liners"))
@@ -64,7 +64,7 @@
   :properties ((:features "v1.4.0" "v1.4.1" "v1.4.2" "cc-interpreter"
                           "join-strings-return-value" "getenv")))
 
-(defsystem :arnesi.test
+(defsystem :arnesi+.test
   :components ((:module :t
 		:components ((:file "accumulation" :depends-on ("suite"))
                              (:file "call-cc" :depends-on ("suite"))
@@ -81,24 +81,24 @@
 			     (:file "walk" :depends-on ("suite"))
 			     (:file "csv" :depends-on ("suite"))
                              (:file "suite"))))
-  :depends-on (:arnesi :FiveAM)
-  :in-order-to ((compile-op (load-op :arnesi))))
+  :depends-on (:arnesi+ :FiveAM)
+  :in-order-to ((compile-op (load-op :arnesi+))))
 
-(defsystem :arnesi.cl-ppcre-extras
+(defsystem :arnesi+.cl-ppcre-extras
   :components ((:module :src
                 :components ((:file "cl-ppcre-extras"))))
-  :depends-on (:cl-ppcre :arnesi))
+  :depends-on (:cl-ppcre :arnesi+))
 
-(defsystem :arnesi.slime-extras
+(defsystem :arnesi+.slime-extras
   :components ((:module :src :components ((:file "slime-extras"))))
-  :depends-on (:arnesi :swank))
+  :depends-on (:arnesi+ :swank))
 
-(defmethod perform ((op asdf:test-op) (system (eql (find-system :arnesi))))
-  (asdf:oos 'asdf:load-op :arnesi.test)
+(defmethod perform ((op asdf:test-op) (system (eql (find-system :arnesi+))))
+  (asdf:oos 'asdf:load-op :arnesi+.test)
   (funcall (intern (string :run!) (string :it.bese.FiveAM))
            :it.bese.arnesi))
 
-(defmethod operation-done-p ((op test-op) (system (eql (find-system :arnesi))))
+(defmethod operation-done-p ((op test-op) (system (eql (find-system :arnesi+))))
   nil)
 
 ;;;; * Introduction
