@@ -48,21 +48,20 @@
   passed a continuation. This object may then be passed to the
   function KALL which will cause execution to resume around the
   call/cc form. "
-  (flet ((env-vars (list)
-	   (reduce #'(lambda (acc atom)
-				  (if (eq :let (car atom))
-				      (cons (list 'list* :let `(quote ,(cadr atom)) (cadr atom)) acc)
-				      (cons atom acc)))
-		   list :initial-value nil)))
-    (let ((lex-env `(list ,@(env-vars (make-cc-walk-env e))))
-	  (dyn-env `(list ,@(env-vars (mapcar #'(lambda (var) `(:let ,var t))
-					      (special-variables e))))))
-      (with-unique-names (lex dyn)
-	`(let ((,lex ,lex-env) (,dyn ,dyn-env))
-	   (drive-interpreter/cc
-	    (evaluate/cc ,(walk-form `(progn ,@(ensure-list body)) nil (make-walk-env e))
-			 ,lex ,dyn
-			 *toplevel-k*)))))))
+  (let* ((env (make-walk-env e))
+	 (form (walk-form `(progn ,@(ensure-list body)) nil nil))
+	 (free-variables (ast-search-type form 'free-variable-reference))
+	 (foo (prog1 t (describe (list'free free-variables))))
+	 (lex-env `(list ,@(mapcar (lambda (ref)
+				     (with-slots (name) ref
+				       `(list* :let ',name ,name)))
+				   free-variables)))
+	 (dyn-env `(list ,@(mapcar #'(lambda (var) `(:let ,var t))
+				   (special-variables e)))))
+    `(let ((show-errors (lambda () ,@body)))
+       (declare (ignore show-errors))
+       (drive-interpreter/cc
+	(evaluate/cc ,form ,dyn-env ,lex-env *toplevel-k*)))))
 
 (defun kall (k &optional (primary-value nil primary-value-p)
                &rest other-values)
