@@ -35,7 +35,7 @@
        (drive-interpreter/cc 
 	(apply-lambda/cc fun
 			 args
-                         '()
+                         (slot-value fun 'env)
 			 *toplevel-k*)))))
 
 ;;;; LAMBDA
