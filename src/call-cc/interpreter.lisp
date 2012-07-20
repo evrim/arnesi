@@ -57,7 +57,7 @@
 		   list :initial-value nil)))
     (let ((lex-env `(list ,@(env-vars (make-cc-walk-env e))))
 	  (dyn-env `(list ,@(env-vars (mapcar #'(lambda (var)
-						  `(:let ',var . ,var))
+						  `(:let ',var t))
 					      (special-variables e))))))
       (with-unique-names (lex dyn)
 	`(let ((,lex ,lex-env) (,dyn ,dyn-env))

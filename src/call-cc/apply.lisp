@@ -112,8 +112,7 @@
     (t
      (evaluate-arguments-then-apply
       (lambda (arguments)
-        (multiple-value-bind (vars vals)
-            (export-specials dyn-env)
+        (multiple-value-bind (vars vals) (export-specials dyn-env)
           (progv vars vals
             (trace-statement "Calling function ~S with arguments ~S"
                              (operator func) arguments)
@@ -127,9 +126,15 @@
 (defun export-specials (dyn-env)
   ;; TODO: here we could check each special whether it has to be exported or not
   ;;       this could be based on something like (declare (export var)) in the cc code
-  (let ((dyn-env (remove-duplicates dyn-env
+  (let ((dyn-env (remove-duplicates (reduce (lambda (acc atom)
+					      ;; fixed. -evrim.
+					      (if (not (eq :next-method (car atom)))
+						  (cons atom acc)
+						  acc))
+					    dyn-env :initial-value nil)
                                     :test (lambda (x y) (eq (second x) (second y)))
-                                    :from-end t)))
+                                    ;; :from-end t
+				    )))
     (values (mapcar 'second dyn-env)
             (mapcar 'cddr dyn-env))))
 
@@ -284,7 +289,7 @@
                    (when (supplied-p-parameter parameter)
                      (setf lex-env
 			   (register lex-env :let (supplied-p-parameter parameter)
-				     t))))))))
+				     nil))))))))
           (allow-other-keys-function-argument-form
            (when (cdr remaining-parameters)
              (error "Bad lambda list: ~S" (arguments (code operator))))
