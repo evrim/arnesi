@@ -17,25 +17,9 @@
 ;;;; common lisp function) is returned. 
 
 (defvar *call/cc-returns* nil)
-
-(defun make-cc-walk-env (&optional lexical-env)
-  (let ((walk-env '()))
-    (when lexical-env
-      (dolist (var (lexical-variables lexical-env))
-        (extend walk-env :let var t))
-      (dolist (fun (lexical-functions lexical-env))
-	;;	(extend walk-env :flet fun t)
-	)
-      (dolist (mac (lexical-macros lexical-env))
-;;	(describe (list 'makmibune mac))
-;;	(extend walk-env :macrolet (car mac) (cdr mac))
-	)
-      (dolist (symmac (lexical-symbol-macros lexical-env))
-;;	(describe (list 'sikimak symmac))
-;;	(extend walk-env :symbol-macrolet (car symmac) (cdr symmac))
-	))
-;;    (describe walk-env)
-    walk-env))
+(defun call/cc (&rest values)
+  (declare (ignore values))
+  (error "Should not see this."))
 
 (defmacro with-call/cc (&environment e &body body)
   "Execute BODY with delimited partial continuations.
@@ -48,51 +32,25 @@
   passed a continuation. This object may then be passed to the
   function KALL which will cause execution to resume around the
   call/cc form. "
-  (flet ((env-vars (list)
-	   (reduce #'(lambda (acc atom)
-		       (if (eq :let (car atom))
-			   (cons `(list* :let ',(cadr atom) ,(cadr atom))
-				 acc)
-			   (cons atom acc)))
-		   list :initial-value nil)))
-    (let ((lex-env `(list ,@(env-vars (make-cc-walk-env e))))
-	  (dyn-env `(list ,@(env-vars (mapcar #'(lambda (var)
-						  `(:let ',var t))
-					      (special-variables e))))))
-      (with-unique-names (lex dyn)
-	`(let ((,lex ,lex-env) (,dyn ,dyn-env))
-	   (drive-interpreter/cc
-	    (evaluate/cc ,(walk-form `(progn ,@(ensure-list body))
-				     nil
-				     (make-walk-env e))
-			 ,lex ,dyn
-			 *toplevel-k*)))))))
-
-;; (defmacro with-call/cc (&environment e &body body)
-;;   "Execute BODY with delimited partial continuations.
-
-;;   Within the code of BODY almost all common lisp forms maintain
-;;   their normal semantics. The following special forms are
-;;   allowed:
-
-;;   (call/cc LAMBDA) - LAMBDA, a one argument function, will be
-;;   passed a continuation. This object may then be passed to the
-;;   function KALL which will cause execution to resume around the
-;;   call/cc form. "
-;;   (let* ((env (make-walk-env e))
-;; 	 (form (walk-form `(progn ,@(ensure-list body)) nil nil))
-;; 	 (free-variables (ast-search-type form 'free-variable-reference))
-;; 	 (foo (prog1 t (describe (list'free free-variables))))
-;; 	 (lex-env `(list ,@(mapcar (lambda (ref)
-;; 				     (with-slots (name) ref
-;; 				       `(list* :let ',name ,name)))
-;; 				   free-variables)))
-;; 	 (dyn-env `(list ,@(mapcar #'(lambda (var) `(:let ,var t))
-;; 				   (special-variables e)))))
-;;     `(let ((show-errors (lambda () ,@body)))
-;;        (declare (ignore show-errors))
-;;        (drive-interpreter/cc
-;; 	(evaluate/cc ,form ,dyn-env ,lex-env *toplevel-k*)))))
+  (flet ((to-env (vars &optional values)
+	   (cond
+	     ((and values vars)
+	      `(list ,@(mapcar (lambda (var) `(list* :let ',var ,var))
+			       vars)))
+	     (vars (list (mapcar (lambda (var) `(:let ,var . t)) vars)))
+	     (t nil))))
+    (let* ((specials (special-variables e))
+	   (form (walk-form `(progn ,@(ensure-list body)) nil nil))
+	   (free-variables (set-difference
+			    (mapcar #'name (ast-search-type form 'free-variable-reference))
+			    specials)))
+      `(let* ((show-errors (lambda () ,@body)))
+	(declare (ignore show-errors))
+	(drive-interpreter/cc
+	 (evaluate/cc ,(walk-form `(progn ,@(ensure-list body)) nil (to-env  free-variables))
+		      ,(to-env free-variables t)
+		      ,(to-env specials t)
+		      *toplevel-k*))))))
 
 (defun kall (k &optional (primary-value nil primary-value-p)
                &rest other-values)

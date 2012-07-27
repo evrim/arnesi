@@ -114,18 +114,10 @@ are discarded \(that is, the body is an implicit PROGN)."
 	  list :initial-value nil))
 
 (defun lookup (environment type name &key (error-p nil) (default-value nil))
-  ;; (loop
-  ;;      for (.type .name . data) in environment
-  ;;      when (and (eql .type type) (eql .name name))
-  ;;      do (return-from lookup (values data t)))
-  (mapc #'(lambda (atom)
-	    (let ((symbol-package (car atom)))
-	      (if (and (eql (car atom) type)
-		       (if (null symbol-package)
-			   (string= (cadr atom) name)
-			   (eql (cadr atom) name)))
-		  (return-from lookup (values (cddr atom) t)))))
-	environment)  
+  (loop
+       for (.type .name . data) in environment
+       when (and (eql .type type) (eql .name name))
+       do (return-from lookup (values data t)))
   (if error-p
       (error "Sorry, No value for ~S of type ~S in environment ~S found."
 	     name type environment)

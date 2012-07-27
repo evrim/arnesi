@@ -13,14 +13,15 @@
   (kontinue k (lookup lex-env :let (name var) :error-p t)))
 
 (defmethod evaluate/cc ((var free-variable-reference) lex-env dyn-env k)
-  (declare (ignore lex-env))
   (multiple-value-bind (value foundp) (lookup dyn-env :let (name var))
     (if foundp
 	(kontinue k value)
-	(if (boundp (name var))
-	    (kontinue k (symbol-value (name var)))
-;;	    (kontinue k (lookup lex-env :let (name var)))
-	    (error "Unbound symbol ~S" (name var))))))
+	(multiple-value-bind (value foundp) (lookup lex-env :let (name var))
+	  (if foundp
+	      (kontinue k value)
+	      (if (boundp (name var))
+		  (kontinue k (symbol-value (name var)))
+		  (error "Unbound symbol ~S" (name var))))))))
 
 ;;;; Constants
 
