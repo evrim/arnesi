@@ -15,9 +15,10 @@
       ;; The list of characters which don't need to be escaped when writing URIs.
       ;; This list is inherently a heuristic, because different uri components may have
       ;; different escaping needs, but it should work fine for http.
-      for ok-char across "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,/" do
+      for ok-char across "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_,." do
       (setf (aref *uri-escaping-ok-table* (char-code ok-char)) t))
-  (setf *uri-escaping-ok-table* (coerce *uri-escaping-ok-table* '(simple-array boolean (256)))))
+  (setf *uri-escaping-ok-table*
+	(coerce *uri-escaping-ok-table* '(simple-array boolean (256)))))
 
 (defun escape-as-uri (string)
   "Escapes all non alphanumeric characters in STRING following
